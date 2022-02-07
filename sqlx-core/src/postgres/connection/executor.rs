@@ -362,7 +362,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
             Ok(())
         };
 
-        let span = tracing::debug_span!("postgres", op="fetch_many");
+        let span = tracing::debug_span!("postgres", op="fetch_many", sql=sql);
         Box::pin(stream.instrument(span))
     }
 
