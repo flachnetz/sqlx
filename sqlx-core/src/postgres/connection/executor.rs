@@ -18,6 +18,7 @@ use futures_core::stream::BoxStream;
 use futures_core::Stream;
 use futures_util::{pin_mut, TryStreamExt};
 use std::{borrow::Cow, sync::Arc};
+use tracing_futures::Instrument;
 
 async fn prepare(
     conn: &mut PgConnection,
@@ -350,7 +351,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         let arguments = query.take_arguments();
         let persistent = query.persistent();
 
-        Box::pin(try_stream! {
+        let stream = try_stream! {
             let s = self.run(sql, arguments, 0, persistent, metadata).await?;
             pin_mut!(s);
 
@@ -359,7 +360,10 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
             }
 
             Ok(())
-        })
+        };
+
+        let span = tracing::debug_span!("postgres", op="fetch_many");
+        Box::pin(stream.instrument(span))
     }
 
     fn fetch_optional<'e, 'q: 'e, E: 'q>(
@@ -375,7 +379,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         let arguments = query.take_arguments();
         let persistent = query.persistent();
 
-        Box::pin(async move {
+        let result = async move {
             let s = self.run(sql, arguments, 1, persistent, metadata).await?;
             pin_mut!(s);
 
@@ -386,7 +390,10 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
             }
 
             Ok(None)
-        })
+        };
+
+        let span = tracing::debug_span!("postgres", op="fetch_one", sql=sql);
+        Box::pin(result.instrument(span))
     }
 
     fn prepare_with<'e, 'q: 'e>(
@@ -397,7 +404,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
     where
         'c: 'e,
     {
-        Box::pin(async move {
+        let stmt = async move {
             self.wait_until_ready().await?;
 
             let (_, metadata) = self.get_or_prepare(sql, parameters, true, None).await?;
@@ -406,7 +413,10 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
                 sql: Cow::Borrowed(sql),
                 metadata,
             })
-        })
+        };
+
+        let span = tracing::debug_span!("postgres", op="prepare", sql=sql);
+        Box::pin(stmt.instrument(span))
     }
 
     fn describe<'e, 'q: 'e>(
@@ -416,7 +426,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
     where
         'c: 'e,
     {
-        Box::pin(async move {
+        let describe = async move {
             self.wait_until_ready().await?;
 
             let (stmt_id, metadata) = self.get_or_prepare(sql, &[], true, None).await?;
@@ -428,6 +438,9 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
                 nullable,
                 parameters: Some(Either::Left(metadata.parameters.clone())),
             })
-        })
+        };
+
+        let span = tracing::debug_span!("postgres", op="describe", sql=sql);
+        Box::pin(describe.instrument(span))
     }
 }
