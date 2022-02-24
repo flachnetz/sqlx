@@ -118,7 +118,7 @@ dirs = { version = "4.0.0", optional = true }
 encoding_rs = { version = "0.8.30", optional = true }
 either = "1.6.1"
 futures-channel = { version = "0.3.19", default-features = false, features = ["sink", "alloc", "std"] }
-futures-core = { version = "0.3.19", default-features = false }
+futures-core = { version = "0.3.21", default-features = false }
 futures-intrusive = "0.4.0"
 futures-util = { version = "0.3.19", default-features = false, features = ["alloc", "sink"] }
 # used by the SQLite worker thread to block on the async mutex that locks the database handle
@@ -168,6 +168,8 @@ hashlink = "0.7.0"
 # NOTE: *must* remain below 1.7.0 to allow users to avoid the `ahash` cyclic dependency problem by pinning the version
 # https://github.com/tkaitchuck/aHash/issues/95#issuecomment-874150078
 indexmap = "1.6.0"
+tracing = "0.1.31"
+tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 
 [dev-dependencies]
 sqlx = { version = "0.5.11", path = "..", features = ["postgres", "sqlite"] }
